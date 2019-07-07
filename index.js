@@ -17,67 +17,69 @@ const gitLink = 'https://github.com/ahhhfiq/WTBus/issues';
 const botLink = 't.me/WTBUS_BOT';
 
 // Setup for the start command
-bot.start(ctx => {
-  ctx.reply(
-    `Hi how can I help you ${ctx.from.first_name}?`,
-
-    Markup.keyboard([
-      ['🚍🚏 Get bus stop timings', '😂 Joke'], // Row1 with 2 buttons
-      ['👥 Share', '📞 Feedback'] // Row2 with 2 buttons
-    ])
-      .resize()
-      .extra()
-  );
+bot.start((ctx) => {
+	ctx.reply(
+		`Hi how can I help you ${ctx.from.first_name}?`,
+		Markup.keyboard([
+			[ '🚍🚏 Get bus stop timings', '😂 Joke' ], // Row1 with 2 buttons
+			[ '👥 Share', '📞 Feedback' ] // Row2 with 2 buttons
+		])
+			.resize()
+			.extra()
+	);
 });
 
-const getBusCode = new Scene('get-bus-code');
-getBusCode.enter(ctx => {
-  ctx.reply('Please give me your bus stop code number');
-});
-getBusCode.on('text', ctx => {
-  ctx.session.busCode = ctx.message.text;
-
-  bus.getBusStopTimings(ctx.session.busCode).then(res => {
-    ctx.reply(res.join('\n'));
-  });
-});
-getBusCode.hears(/🚍1\)/, ctx => {
-  console.log('enter');
-  getBusCode.leave(ctx => {
-    bus.getBusStopTimings(ctx.session.busCode).then(response => {
-      console.log(response);
-    });
-  });
-});
-getBusCode.leave(ctx => ctx.reply('exiting echo scene'));
-getBusCode.command('back', ctx => ctx.scene.leave());
-
-bot.hears(/(feedback)/i, ctx => {
-  ctx.reply(`For any feedback or feature requests click this link: ${gitLink}`);
-});
-bot.hears('👥 Share', ctx => {
-  ctx.reply(
-    `Just copy this link to share this bot with your friends ${botLink}`
-  );
+const getBusCode = new Scene('get-bus-code'); //Create a new scene
+// The first thing someone see when they enter the scene
+getBusCode.enter((ctx) => {
+	ctx.reply('Please give me your bus stop code number');
 });
 
-bot.hears(/(joke)/i, ctx => {
-  let jokeResponse = joke.getJoke();
-  jokeResponse
-    .then(res => {
-      ctx.reply(res);
-    })
-    .catch(err => {
-      console.log(err);
-    });
+getBusCode.leave((ctx) => ctx.reply('Exiting...'));
+getBusCode.command('back', (ctx) => ctx.scene.leave());
+
+getBusCode.on('text', async (ctx) => {
+	ctx.session.busCode = ctx.message.text;
+
+	await bus
+		.getBusStopTimings(ctx.session.busCode)
+		.then((res) => {
+			//TODO: Error when asking again for bus timings & Error when bus stop code is not found or valid
+			ctx.reply(res);
+		})
+		.catch((err) => {
+			ctx.reply(err);
+		})
+		.finally(() => {
+			ctx.scene.leave();
+		});
 });
 
-const stage = new Stage();
+bot.hears(/(feedback)/i, (ctx) => {
+	ctx.reply(`For any feedback or feature requests click this link: ${gitLink}`);
+});
+bot.hears('👥 Share', (ctx) => {
+	ctx.reply(`Just copy this link to share this bot with your friends ${botLink}`);
+});
 
-stage.register(getBusCode);
+bot.hears(/(joke)/i, (ctx) => {
+	let jokeResponse = joke.getJoke();
+	jokeResponse
+		.then((res) => {
+			ctx.reply(res);
+		})
+		.catch((err) => {
+			console.log(err);
+		});
+});
+
+const stage = new Stage(); //Create scene manager
+
+stage.register(getBusCode); //Register a scene
 
 bot.use(session());
 bot.use(stage.middleware());
+//Using regex to hear
 bot.hears(/(🚍🚏)/i, enter('get-bus-code'));
 
 bot.launch();
